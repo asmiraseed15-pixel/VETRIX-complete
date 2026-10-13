@@ -1,4 +1,5 @@
 
+
 """
 Django settings for config project.
 """
@@ -6,8 +7,9 @@ Django settings for config project.
 import os
 from pathlib import Path
 from datetime import timedelta
-from dotenv import load_dotenv
+
 import dj_database_url
+from dotenv import load_dotenv
 
 
 # =========================================================
@@ -16,10 +18,11 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from VETRIXBackend/.env
+# Load VETRIXBackend/.env
 load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+
 
 # =========================================================
 # SECURITY
@@ -30,8 +33,7 @@ SECRET_KEY = os.environ.get(
     "django-insecure-CHANGE-THIS-IN-PRODUCTION",
 )
 
-# Local la True, Vercel la DEBUG=False nu environment variable vechukalam
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+DEBUG = os.environ.get("DEBUG", "True").strip().lower() == "true"
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -41,9 +43,14 @@ ALLOWED_HOSTS = [
     ".vercel.app",
 ]
 
-# Vercel (HTTPS) la admin login / CSRF work aaga
-CSRF_TRUSTED_ORIGINS = ["https://*.vercel.app"]
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.vercel.app",
+]
+
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https",
+)
 
 
 # =========================================================
@@ -58,11 +65,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # Third-party apps
+    # Third-party applications
     "rest_framework",
     "corsheaders",
 
-    # VETRIX apps
+    # VETRIX applications
     "accounts",
     "learning",
 ]
@@ -122,13 +129,22 @@ WSGI_APPLICATION = "config.wsgi.application"
 # DATABASE
 # =========================================================
 
-# DATABASE_URL irundha PostgreSQL (Neon), illana local SQLite
-DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-    )
-}
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+        )
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # =========================================================
@@ -180,13 +196,13 @@ USE_TZ = True
 # STATIC FILES
 # =========================================================
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # =========================================================
-# EMAIL CONFIGURATION
+# EMAIL CONFIGURATION - VETRIX OTP
 # =========================================================
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -197,9 +213,16 @@ EMAIL_PORT = 587
 
 EMAIL_USE_TLS = True
 
-VETRIX_EMAIL_USER = os.environ.get("VETRIX_EMAIL_USER", "").strip()
+VETRIX_EMAIL_USER = os.environ.get(
+    "VETRIX_EMAIL_USER", ""
+).strip()
 
-VETRIX_EMAIL_PASSWORD = os.environ.get("VETRIX_EMAIL_PASSWORD", "").strip()
+# Remove whitespace from the App Password
+VETRIX_EMAIL_PASSWORD = "".join(
+    os.environ.get(
+        "VETRIX_EMAIL_PASSWORD", ""
+    ).split()
+)
 
 EMAIL_HOST_USER = VETRIX_EMAIL_USER
 
@@ -212,11 +235,12 @@ DEFAULT_FROM_EMAIL = VETRIX_EMAIL_USER
 # CORS CONFIGURATION
 # =========================================================
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Development only. Restrict origins in production.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 
 # =========================================================
-# DJANGO REST FRAMEWORK + JWT
+# DJANGO REST FRAMEWORK
 # =========================================================
 
 REST_FRAMEWORK = {
